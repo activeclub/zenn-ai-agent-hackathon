@@ -17,12 +17,12 @@ async function main() {
   await prisma.message.createMany({
     data: [
       {
-        contentAudio: new Uint8Array(new ArrayBuffer(0)),
+        contentURL: "https://example",
         contentTranscript: "Hi, how can I help you today?",
         speaker: "SYSTEM",
       },
       {
-        contentAudio: new Uint8Array(new ArrayBuffer(0)),
+        contentURL: "https://example",
         contentTranscript: "Hey, I'm having trouble with my account.",
         speaker: "USER",
       },
