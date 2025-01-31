@@ -3,6 +3,7 @@ on:
 
 env:
   GCP_REGION: asia-northeast1
+  CONTAINER_NAME: wondy-web
 
 jobs:
   deploy:
@@ -32,5 +33,5 @@ jobs:
           file: ./docker/web/Dockerfile
           push: true
           tags: |
-            ${{ inputs.region }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
-            ${{ inputs.region }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:latest
+            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.CONTAINER_NAME }}/${{ env.CONTAINER_NAME }}:${{ github.sha }}
+            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.CONTAINER_NAME }}/${{ env.CONTAINER_NAME }}:latest
