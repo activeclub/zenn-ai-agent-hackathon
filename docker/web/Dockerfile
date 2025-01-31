@@ -16,7 +16,8 @@ WORKDIR /app
 COPY . .
 COPY --from=deps /app/node_modules ./node_modules
 
-RUN pnpm build \
+RUN pnpm prisma generate \
+  && pnpm build \
   && pnpm prune --prod
 
 # Production image, copy all the files and run
