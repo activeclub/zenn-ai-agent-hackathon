@@ -13,13 +13,22 @@ import {
 import { GalleryVerticalEnd } from "lucide-react";
 import { NavUser } from "./nav-user";
 import { NavSecondary } from "./nav-secondary";
+import { useEffect, useState } from "react";
+import { API_BASE_URL } from "@/config";
+import { GetUser, User } from "@/app/api";
 
 export function AppSidebar() {
-  const user = {
-    avatar: "https://ui.shadcn.com/avatars/shadcn.jpg",
-    name: "パパ",
-    email: "papa@wondy.io",
-  };
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const ret = await fetch(`${API_BASE_URL}/api/users/id`, {
+        method: "GET",
+      });
+      const { data } = (await ret.json()) as GetUser;
+      setUser(data);
+    })();
+  }, []);
 
   return (
     <Sidebar>
@@ -49,11 +58,9 @@ export function AppSidebar() {
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
-        <NavSecondary />
+        {user && <NavSecondary user={user} />}
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser user={user} />
-      </SidebarFooter>
+      <SidebarFooter>{user && <NavUser user={user} />}</SidebarFooter>
     </Sidebar>
   );
 }

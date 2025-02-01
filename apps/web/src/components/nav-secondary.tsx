@@ -38,19 +38,36 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
+import { API_BASE_URL } from "@/config";
+import { GetUser, User } from "@/app/api";
 
 const schema = v.object({
-  traits: v.string(),
+  trait: v.string(),
 });
 
 type FormSchema = v.InferInput<typeof schema>;
 
-export function NavSecondary() {
+export function NavSecondary({ user }: { user: User }) {
   const form = useForm<FormSchema>({
     resolver: valibotResolver(schema),
+    defaultValues: async () => {
+      const ret = await fetch(`${API_BASE_URL}/api/users/${user.id}`, {
+        method: "GET",
+      });
+      const { data } = (await ret.json()) as GetUser;
+      return { trait: data?.settings?.trait ?? "" };
+    },
   });
 
-  function onSubmit(data: FormSchema) {}
+  async function onSubmit(data: FormSchema) {
+    await fetch(`${API_BASE_URL}/api/users/${user.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ trait: data.trait }),
+    });
+  }
 
   return (
     <SidebarGroup className="mt-auto">
@@ -114,7 +131,7 @@ export function NavSecondary() {
                         >
                           <FormField
                             control={form.control}
-                            name="traits"
+                            name="trait"
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>

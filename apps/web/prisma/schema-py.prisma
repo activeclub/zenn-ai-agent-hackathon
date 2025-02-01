@@ -8,6 +8,16 @@ generator client {
   previewFeatures = ["prismaSchemaFolder"]
 }
 
+model User {
+  id          String   @id @default(cuid())
+  avatarURL   String  @map("avatar_url")
+  displayName String  @map("display_name")
+  email       String  @unique
+  settings    Setting?
+
+  @@map("users")
+}
+
 model Message {
   id                String      @id @default(uuid())
   contentURL        String      @map("content_url")
@@ -16,6 +26,14 @@ model Message {
   speaker           SpeakerType @map("speaker")
 
   @@map("messages")
+}
+
+model Setting {
+  userId String  @unique @map("user_id")
+  user   User    @relation(fields: [userId], references: [id])
+  trait  String? @map("trait")
+
+  @@map("settings")
 }
 
 enum SpeakerType {

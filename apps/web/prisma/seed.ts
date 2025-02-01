@@ -14,19 +14,16 @@ async function main() {
   console.log("Truncating finished.");
 
   console.log("Start seeding ...");
-  await prisma.message.createMany({
-    data: [
-      {
-        contentURL: "https://example",
-        contentTranscript: "Hi, how can I help you today?",
-        speaker: "SYSTEM",
+  await prisma.user.create({
+    data: {
+      avatarURL:
+        "https://storage.googleapis.com/zenn-user-upload/avatar/f083a9af9a.jpeg",
+      email: "papa@wondy.io",
+      displayName: "パパ",
+      settings: {
+        create: {},
       },
-      {
-        contentURL: "https://example",
-        contentTranscript: "Hey, I'm having trouble with my account.",
-        speaker: "USER",
-      },
-    ],
+    },
   });
   console.log("Seeding finished.");
 }
