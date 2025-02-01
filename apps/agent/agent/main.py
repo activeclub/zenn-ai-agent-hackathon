@@ -309,7 +309,7 @@ class AudioLoop:
                 self.db_queue = asyncio.Queue()
 
                 send_text_task = tg.create_task(self.send_text())
-                # tg.create_task(self.get_frames())
+                tg.create_task(self.get_frames())
                 tg.create_task(self.listen_audio())
                 tg.create_task(self.send_realtime())
                 tg.create_task(self.save_db())
