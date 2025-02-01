@@ -140,7 +140,7 @@ class AudioLoop:
                     data["audio"],
                     channels=CHANNELS,
                     sample_rate=RECEIVE_SAMPLE_RATE,
-                    sample_width=2, # 16bit
+                    sample_width=2,  # 16bit
                 )
                 speech_config = speech_config_system
             elif speaker == "USER":
@@ -148,7 +148,7 @@ class AudioLoop:
                     data["audio"],
                     channels=CHANNELS,
                     sample_rate=SEND_SAMPLE_RATE,
-                    sample_width=2, # 16bit
+                    sample_width=2,  # 16bit
                 )
                 speech_config = speech_config_user
             else:
@@ -330,16 +330,25 @@ class AudioLoop:
 
 
 async def main():
-    client = genai.Client(
-        api_key=app_config.gemini_api_key, http_options={"api_version": "v1alpha"}
-    )
+    client = genai.Client(api_key=app_config.gemini_api_key)
+
+    # available_models = await client.aio.models.list(config={"page_size": 5})
+    # print(available_models.page)
+
     model_id = "gemini-2.0-flash-exp"
     config = {
         "response_modalities": ["AUDIO"],
-        "system_instruction": {"parts": [{"text": "Please answer in Japanese."}]},
+        "system_instruction": {
+            "parts": [
+                # {"text": "Please answer concisely in Japanese."},
+                {
+                    "text": "Please answer concisely in Japanese so that even a 5-year-old child can understand."
+                },
+            ]
+        },
         "voice_config": {
             "prebuilt_voice_config": {
-                "voice_name": "Puck",
+                "voice_name": "Aoede",
             }
         },
     }
