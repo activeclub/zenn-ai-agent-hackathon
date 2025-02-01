@@ -1,16 +1,26 @@
+"use client";
+
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
-  SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { GalleryVerticalEnd } from "lucide-react";
+import { NavUser } from "./nav-user";
+import { NavSecondary } from "./nav-secondary";
 
 export function AppSidebar() {
+  const user = {
+    avatar: "https://ui.shadcn.com/avatars/shadcn.jpg",
+    name: "パパ",
+    email: "papa@wondy.io",
+  };
+
   return (
     <Sidebar>
       <SidebarContent>
@@ -33,14 +43,17 @@ export function AppSidebar() {
             <SidebarMenuItem>
               <SidebarMenuButton asChild>
                 <a href="#">
-                  <span>◯◯のはなし
-                  </span>
+                  <span>◯◯のはなし</span>
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
+        <NavSecondary />
       </SidebarContent>
+      <SidebarFooter>
+        <NavUser user={user} />
+      </SidebarFooter>
     </Sidebar>
   );
 }
