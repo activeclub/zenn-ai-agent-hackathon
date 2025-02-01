@@ -296,6 +296,7 @@ class AudioLoop:
             channels=CHANNELS,
             rate=RECEIVE_SAMPLE_RATE,
             output=True,
+            frames_per_buffer=CHUNK_SIZE,
         )
         while True:
             bytestream = await self.audio_in_queue.get()
