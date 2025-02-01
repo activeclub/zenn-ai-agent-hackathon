@@ -44,7 +44,7 @@ def cv2_sample():
     return
 
 
-def pycamera_sample():
+def pycamera_sample(preview = False):
     from libcamera import controls
     from picamera2 import Picamera2, Preview
 
@@ -82,7 +82,9 @@ def pycamera_sample():
         #   - 無効化: v4l2-ctl --set-ctrl wide_dynamic_range=0 -d /dev/v4l-subdev0
     }
 
-    picam2.start_preview(Preview.QTGL)
+    if preview:
+        picam2.start_preview(Preview.QTGL)
+
     preview_config = picam2.create_preview_configuration(
         main={
             "format": "XRGB8888",
