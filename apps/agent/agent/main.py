@@ -13,6 +13,12 @@ from google.cloud import speech
 from google.oauth2 import service_account
 from prisma import Prisma
 from prisma.models import Message
+from google.genai.types import (
+    LiveConnectConfig,
+    SpeechConfig,
+    VoiceConfig,
+    PrebuiltVoiceConfig,
+)
 
 from agent.config import config as app_config
 from agent.speech import speak_from_bytes
@@ -330,28 +336,31 @@ class AudioLoop:
 
 
 async def main():
-    client = genai.Client(api_key=app_config.gemini_api_key)
+    client = genai.client.Client(
+        api_key=app_config.gemini_api_key,
+        http_options={"api_version": "v1alpha"},
+    )
 
     # available_models = await client.aio.models.list(config={"page_size": 5})
     # print(available_models.page)
 
     model_id = "gemini-2.0-flash-exp"
-    config = {
-        "response_modalities": ["AUDIO"],
-        "system_instruction": {
+    config = LiveConnectConfig(
+        response_modalities=["AUDIO"],
+        system_instruction={
             "parts": [
-                # {"text": "Please answer concisely in Japanese."},
-                {
-                    "text": "Please answer concisely in Japanese so that even a 5-year-old child can understand."
-                },
+                {"text": "Please answer concisely in Japanese."},
+                # {"text": "Please answer concisely in Japanese so that even a 5-year-old child can understand."},
             ]
         },
-        "voice_config": {
-            "prebuilt_voice_config": {
-                "voice_name": "Aoede",
-            }
-        },
-    }
+        speech_config=SpeechConfig(
+            voice_config=VoiceConfig(
+                prebuilt_voice_config=PrebuiltVoiceConfig(
+                    voice_name="Aoede",
+                )
+            )
+        ),
+    )
 
     prisma = Prisma(auto_register=True)
 
