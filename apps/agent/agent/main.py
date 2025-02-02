@@ -12,7 +12,7 @@ from google import genai
 from google.cloud import speech
 from google.oauth2 import service_account
 from prisma import Prisma
-from prisma.models import Message
+from prisma.models import Message, User
 from google.genai.types import (
     LiveConnectConfig,
     SpeechConfig,
@@ -292,8 +292,8 @@ class AudioLoop:
             # For interruptions to work, we need to stop playback.
             # So empty out the audio queue because it may have loaded
             # much more audio than has played yet.
-            while not self.audio_in_queue.empty():
-                self.audio_in_queue.get_nowait()
+            # while not self.audio_in_queue.empty():
+            #     self.audio_in_queue.get_nowait()
 
     async def play_audio(self):
         stream = await asyncio.to_thread(
@@ -344,28 +344,35 @@ async def main():
     # available_models = await client.aio.models.list(config={"page_size": 5})
     # print(available_models.page)
 
-    model_id = "gemini-2.0-flash-exp"
-    config = LiveConnectConfig(
-        response_modalities=["AUDIO"],
-        system_instruction={
-            "parts": [
-                {"text": "Please answer concisely in Japanese."},
-                # {"text": "Please answer concisely in Japanese so that even a 5-year-old child can understand."},
-            ]
-        },
-        speech_config=SpeechConfig(
-            voice_config=VoiceConfig(
-                prebuilt_voice_config=PrebuiltVoiceConfig(
-                    voice_name="Aoede",
-                )
-            )
-        ),
-    )
-
     prisma = Prisma(auto_register=True)
 
     try:
         await prisma.connect()
+
+        user = await User.prisma().find_first()
+        setting = await prisma.setting.find_first(
+            where={"userId": user.id},
+        )
+
+        model_id = "gemini-2.0-flash-exp"
+        config = LiveConnectConfig(
+            response_modalities=["AUDIO"],
+            system_instruction={
+                "parts": [
+                    {"text": setting.trait},
+                    # {"text": "Please answer concisely in Japanese."},
+                    # {"text": "Please answer concisely in Japanese so that even a 5-year-old child can understand."},
+                ]
+            },
+            speech_config=SpeechConfig(
+                voice_config=VoiceConfig(
+                    prebuilt_voice_config=PrebuiltVoiceConfig(
+                        voice_name="Aoede",
+                    )
+                )
+            ),
+        )
+
         async with client.aio.live.connect(model=model_id, config=config) as session:
             await AudioLoop(session).run()
             # while True:
