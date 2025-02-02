@@ -210,8 +210,8 @@ class AudioLoop:
                 silent_chnks = 0
             else:
                 silent_chnks += 1
-                # 3秒以上の無音区間があれば、ターンの終了判定
-                if silent_chnks * CHUNK_SIZE * CHANNELS >= SEND_SAMPLE_RATE * 3:
+                # 一定期間以上の無音区間があれば、ターンの終了判定
+                if silent_chnks * CHUNK_SIZE * CHANNELS >= SEND_SAMPLE_RATE * 0.5:
                     if turn_block:
                         self.db_queue.put_nowait(
                             {"audio": turn_block, "speaker": "USER"}
