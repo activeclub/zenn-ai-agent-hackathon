@@ -67,6 +67,8 @@ class AudioLoop:
         self.audio_interface = pyaudio.PyAudio()
         self.audio_stream = None
 
+        self.is_system_speaking = False
+
         self.speech = speech.SpeechAsyncClient(
             credentials=service_account.Credentials.from_service_account_file(
                 app_config.service_account_key_path
@@ -211,7 +213,8 @@ class AudioLoop:
             else:
                 silent_chnks += 1
                 # 一定期間以上の無音区間があれば、ターンの終了判定
-                if silent_chnks * CHUNK_SIZE * CHANNELS >= SEND_SAMPLE_RATE * 0.5:
+                silent_sample_num = silent_chnks * CHUNK_SIZE * CHANNELS
+                if silent_sample_num >= SEND_SAMPLE_RATE * 3 or self.is_system_speaking:
                     if turn_block:
                         self.db_queue.put_nowait(
                             {"audio": turn_block, "speaker": "USER"}
@@ -276,6 +279,7 @@ class AudioLoop:
             turn_block = b""
             async for response in turn:
                 if data := response.data:
+                    self.is_system_speaking = True
                     self.audio_in_queue.put_nowait(data)
                     has_nonzero = any(b != 0 for b in data)
                     if not has_nonzero:
@@ -294,6 +298,8 @@ class AudioLoop:
             # much more audio than has played yet.
             # while not self.audio_in_queue.empty():
             #     self.audio_in_queue.get_nowait()
+
+            self.is_system_speaking = False
 
     async def play_audio(self):
         stream = await asyncio.to_thread(
