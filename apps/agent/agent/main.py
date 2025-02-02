@@ -200,15 +200,6 @@ class AudioLoop:
         turn_block = b""
         silent_chnks = 0
         while True:
-            # システムが話しだしたら、それまでの入力を保存して音声入力を無視する
-            if self.is_system_speaking:
-                if turn_block:
-                    self.db_queue.put_nowait(
-                        {"audio": turn_block, "speaker": "USER"}
-                    )
-                    turn_block = b""
-                continue
-
             data = await asyncio.to_thread(self.audio_stream.read, CHUNK_SIZE, **kwargs)
 
             await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
@@ -216,19 +207,18 @@ class AudioLoop:
             audio_data = np.frombuffer(data, dtype=np.int16)
             mean_abs_amplitude = np.abs(audio_data).mean()
 
-            if mean_abs_amplitude > 500:
+            if mean_abs_amplitude < 500:
+                silent_chnks += 1
+            else:
                 turn_block += data
                 silent_chnks = 0
-            else:
-                silent_chnks += 1
-                # 一定期間以上の無音区間があれば、ターンの終了判定
-                silent_sample_num = silent_chnks * CHUNK_SIZE * CHANNELS
-                if silent_sample_num >= SEND_SAMPLE_RATE * 3:
-                    if turn_block:
-                        self.db_queue.put_nowait(
-                            {"audio": turn_block, "speaker": "USER"}
-                        )
-                        turn_block = b""
+
+            # 一定期間以上の無音区間があれば、ターンの終了判定
+            silent_sample_num = silent_chnks * CHUNK_SIZE * CHANNELS
+            if silent_sample_num >= SEND_SAMPLE_RATE * 3 or self.is_system_speaking:
+                if turn_block:
+                    self.db_queue.put_nowait({"audio": turn_block, "speaker": "USER"})
+                    turn_block = b""
 
     def _get_frame(self, frame_rgb):
         img = PIL.Image.fromarray(frame_rgb)  # Now using RGB frame
