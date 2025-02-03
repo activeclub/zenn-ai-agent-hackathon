@@ -154,12 +154,12 @@ class AudioLoop:
 
             blob.upload_from_string(wav_bytes, content_type="audio/wav")
 
-            # transcript = await stt_google(
-            #     storage_uri=f"gs://{app_config.cloud_storage_bucket}/{blob.name}",
-            #     sample_rate=sample_rate,
-            #     language_code=language_code,
-            # )
-            transcript = await stt_genai(audio_bytes=wav_bytes)
+            transcript = await stt_google(
+                storage_uri=f"gs://{app_config.cloud_storage_bucket}/{blob.name}",
+                sample_rate=sample_rate,
+                language_code=language_code,
+            )
+            # transcript = await stt_genai(audio_bytes=wav_bytes)
 
             await Message.prisma().create(
                 {
@@ -333,11 +333,6 @@ class AudioLoop:
 
 
 async def main():
-    client = genai_client.client.Client(
-        api_key=app_config.gemini_api_key,
-        http_options={"api_version": "v1alpha"},
-    )
-
     # available_models = await client.aio.models.list(config={"page_size": 5})
     # print(available_models.page)
 
@@ -370,7 +365,7 @@ async def main():
             ),
         )
 
-        async with client.aio.live.connect(model=model_id, config=config) as session:
+        async with genai_client.aio.live.connect(model=model_id, config=config) as session:
             await AudioLoop(session).run()
             # while True:
             #     await text2audio(session)
