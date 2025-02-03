@@ -6,12 +6,18 @@ import wave
 
 import pyaudio
 from google.cloud import speech
+import google.generativeai as genai
+from google.genai.types import Part, GenerateContentConfig, Blob
+from google import genai as genai2
+from agent.storage import bucket
 
 from agent.config import config
 
 # Audio recording parameters
 RATE = 16000
 CHUNK = int(RATE / 10)  # 100ms
+
+genai.configure(api_key=config.gemini_api_key)
 
 
 class MicrophoneStream:
@@ -216,6 +222,11 @@ async def main2() -> None:
     from google.oauth2 import service_account
     from prisma import Prisma
 
+    filename = "2666599b-e454-48f9-b752-6720e00dfe27.wav"
+    blob = bucket.blob(filename)
+    audio_bytes = blob.download_as_bytes()
+
+    ##### Speech to Text
     speech_client = speech.SpeechAsyncClient(
         credentials=service_account.Credentials.from_service_account_file(
             config.service_account_key_path
@@ -234,17 +245,15 @@ async def main2() -> None:
     #     model="latest_long",
     # )
 
-    db = Prisma()
-    await db.connect()
-    message = await db.message.find_first(where={"id": "cm66ch1ej0002q5nx6h9u8nez"})
     # audio = speech.RecognitionAudio(content=Base64.decode(message.contentAudio))
 
     audio = speech.RecognitionAudio(
         # content=data["audio"],
-        uri=f"gs://{config.cloud_storage_bucket}/b667092d-83b9-4371-a9fb-00436a0a2b7e.wav",
+        uri=f"gs://{config.cloud_storage_bucket}/{filename}",
     )
 
     ret = await speech_client.recognize(config=speech_config, audio=audio)
+
     # request = cloud_speech.RecognizeRequest(
     #     recognizer="projects/swift-handler-446606-q0/locations/global/recognizers/_",
     #     config=speech_config,
@@ -253,7 +262,39 @@ async def main2() -> None:
     # ret = speech_client.recognize(request=request)
 
     print(ret)
-    await db.disconnect()
+    #####
+
+    ##### google-generativeai
+    # model = genai.GenerativeModel("gemini-2.0-flash-exp")
+    # prompt = "Generate a transcript of the speech in Japanese."
+    # response = model.generate_content(
+    #     [
+    #         prompt,
+    #         {
+    #             "mime_type": "audio/wav",
+    #             "data": audio_bytes,
+    #         },
+    #     ]
+    # )
+    # print(response.text)
+    #####
+
+    ##### google-genai
+    client = genai2.client.Client(
+        api_key=config.gemini_api_key,
+    )
+    response = await client.aio.models.generate_content(
+        model="gemini-2.0-flash-exp",
+        contents=Part.from_bytes(data=audio_bytes, mime_type="audio/wav"),
+        config=GenerateContentConfig(
+            system_instruction=[
+                "Generate a transcript of the speech in Japanese.",
+            ]
+        ),
+    )
+
+    print(response.text)
+    #####
 
 
 def pcm_to_wav_bytes(pcm_bytes, sample_rate=16000, channels=1, sample_width=2):

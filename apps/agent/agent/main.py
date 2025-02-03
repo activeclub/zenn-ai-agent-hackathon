@@ -210,7 +210,9 @@ class AudioLoop:
             if mean_abs_amplitude < 500:
                 silent_chnks += 1
             else:
-                turn_block += data
+                has_nonzero = any(b != 0 for b in data)
+                if has_nonzero:
+                    turn_block += data
                 silent_chnks = 0
 
             # 一定期間以上の無音区間があれば、ターンの終了判定
