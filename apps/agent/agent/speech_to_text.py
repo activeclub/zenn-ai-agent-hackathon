@@ -1,3 +1,4 @@
+from typing import Optional
 import io
 import queue
 import re
@@ -6,18 +7,22 @@ import wave
 
 import pyaudio
 from google.cloud import speech
-import google.generativeai as genai
-from google.genai.types import Part, GenerateContentConfig, Blob
-from google import genai as genai2
-from agent.storage import bucket
+from google.oauth2 import service_account
+from google.genai.types import Part
 
 from agent.config import config
+from agent.genai import genai_client
+from agent.storage import bucket
 
 # Audio recording parameters
 RATE = 16000
 CHUNK = int(RATE / 10)  # 100ms
 
-genai.configure(api_key=config.gemini_api_key)
+speech_client = speech.SpeechAsyncClient(
+    credentials=service_account.Credentials.from_service_account_file(
+        config.service_account_key_path
+    )
+)
 
 
 class MicrophoneStream:
@@ -219,23 +224,34 @@ def main() -> None:
 
 
 async def main2() -> None:
-    from google.oauth2 import service_account
-    from prisma import Prisma
-
     filename = "2666599b-e454-48f9-b752-6720e00dfe27.wav"
     blob = bucket.blob(filename)
     audio_bytes = blob.download_as_bytes()
 
     ##### Speech to Text
-    speech_client = speech.SpeechAsyncClient(
-        credentials=service_account.Credentials.from_service_account_file(
-            config.service_account_key_path
-        )
+    # ret = await stt_google(audio_bytes=audio_bytes)
+    # print(ret)
+    #####
+
+    ##### google-genai
+    ret = await stt_genai(
+        audio_bytes=audio_bytes,
+        storage_uri=f"gs://{config.cloud_storage_bucket}/{filename}",
     )
+    print(ret)
+    #####
+
+
+async def stt_google(
+    sample_rate: int = 16_000,
+    language_code: str = "ja-JP",
+    audio_bytes: Optional[bytes] = None,
+    storage_uri: Optional[str] = None,
+) -> str:
     speech_config = speech.RecognitionConfig(
         encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-        sample_rate_hertz=16000,
-        language_code="ja-JP",
+        sample_rate_hertz=sample_rate,
+        language_code=language_code,
     )
     # speech_config = cloud_speech.RecognitionConfig(
     #     auto_decoding_config=cloud_speech.AutoDetectDecodingConfig(),
@@ -245,15 +261,12 @@ async def main2() -> None:
     #     model="latest_long",
     # )
 
-    # audio = speech.RecognitionAudio(content=Base64.decode(message.contentAudio))
-
     audio = speech.RecognitionAudio(
-        # content=data["audio"],
-        uri=f"gs://{config.cloud_storage_bucket}/{filename}",
+        content=audio_bytes,
+        uri=storage_uri,
     )
 
-    ret = await speech_client.recognize(config=speech_config, audio=audio)
-
+    response = await speech_client.recognize(config=speech_config, audio=audio)
     # request = cloud_speech.RecognizeRequest(
     #     recognizer="projects/swift-handler-446606-q0/locations/global/recognizers/_",
     #     config=speech_config,
@@ -261,40 +274,34 @@ async def main2() -> None:
     # )
     # ret = speech_client.recognize(request=request)
 
-    print(ret)
-    #####
+    transcript = ""
+    for result in response.results:
+        transcript += result.alternatives[0].transcript
 
-    ##### google-generativeai
-    # model = genai.GenerativeModel("gemini-2.0-flash-exp")
-    # prompt = "Generate a transcript of the speech in Japanese."
-    # response = model.generate_content(
-    #     [
-    #         prompt,
-    #         {
-    #             "mime_type": "audio/wav",
-    #             "data": audio_bytes,
-    #         },
-    #     ]
-    # )
-    # print(response.text)
-    #####
+    return transcript
 
-    ##### google-genai
-    client = genai2.client.Client(
-        api_key=config.gemini_api_key,
-    )
-    response = await client.aio.models.generate_content(
+
+async def stt_genai(
+    audio_bytes: Optional[bytes] = None, storage_uri: Optional[str] = None
+) -> str:
+    contents = [Part.from_text(text="Generate a transcript of the speech in Japanese.")]
+
+    if audio_bytes:
+        contents.append(Part.from_bytes(data=audio_bytes, mime_type="audio/wav"))
+    elif storage_uri:
+        contents.append(Part.from_uri(file_uri=storage_uri, mime_type="audio/wav"))
+
+    response = await genai_client.aio.models.generate_content(
         model="gemini-2.0-flash-exp",
-        contents=Part.from_bytes(data=audio_bytes, mime_type="audio/wav"),
-        config=GenerateContentConfig(
-            system_instruction=[
-                "Generate a transcript of the speech in Japanese.",
-            ]
-        ),
+        contents=contents,
+        # config=GenerateContentConfig(
+        #     system_instruction=[
+        #         "Generate a transcript of the speech in Japanese.",
+        #     ]
+        # ),
     )
 
-    print(response.text)
-    #####
+    return response.text
 
 
 def pcm_to_wav_bytes(pcm_bytes, sample_rate=16000, channels=1, sample_width=2):

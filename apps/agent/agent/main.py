@@ -8,7 +8,6 @@ import cv2
 import numpy as np
 import PIL.Image
 import pyaudio
-from google import genai
 from google.cloud import speech
 from google.oauth2 import service_account
 from prisma import Prisma
@@ -21,8 +20,9 @@ from google.genai.types import (
 )
 
 from agent.config import config as app_config
+from agent.genai import genai_client
 from agent.speech import speak_from_bytes
-from agent.speech_to_text import pcm_to_wav_bytes
+from agent.speech_to_text import pcm_to_wav_bytes, stt_google, stt_genai
 from agent.storage import bucket
 
 FORMAT = pyaudio.paInt16
@@ -126,16 +126,6 @@ class AudioLoop:
 
     async def save_db(self):
         language_code = "ja-JP"  # a BCP-47 language tag
-        speech_config_system = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-            sample_rate_hertz=RECEIVE_SAMPLE_RATE,
-            language_code=language_code,
-        )
-        speech_config_user = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-            sample_rate_hertz=SEND_SAMPLE_RATE,
-            language_code=language_code,
-        )
         while True:
             data = await self.db_queue.get()
             speaker = data["speaker"]
@@ -150,7 +140,7 @@ class AudioLoop:
                     sample_rate=RECEIVE_SAMPLE_RATE,
                     sample_width=2,  # 16bit
                 )
-                speech_config = speech_config_system
+                sample_rate = RECEIVE_SAMPLE_RATE
             elif speaker == "USER":
                 wav_bytes = pcm_to_wav_bytes(
                     data["audio"],
@@ -158,19 +148,19 @@ class AudioLoop:
                     sample_rate=SEND_SAMPLE_RATE,
                     sample_width=2,  # 16bit
                 )
-                speech_config = speech_config_user
+                sample_rate = SEND_SAMPLE_RATE
             else:
                 raise ValueError(f"Invalid speaker: {speaker}")
 
             blob.upload_from_string(wav_bytes, content_type="audio/wav")
-            audio = speech.RecognitionAudio(
-                # content=data["audio"],
-                uri=f"gs://{app_config.cloud_storage_bucket}/{blob.name}",
-            )
-            response = await self.speech.recognize(config=speech_config, audio=audio)
-            transcript = ""
-            for result in response.results:
-                transcript += result.alternatives[0].transcript
+
+            # transcript = await stt_google(
+            #     storage_uri=f"gs://{app_config.cloud_storage_bucket}/{blob.name}",
+            #     sample_rate=sample_rate,
+            #     language_code=language_code,
+            # )
+            transcript = await stt_genai(audio_bytes=wav_bytes)
+
             await Message.prisma().create(
                 {
                     "id": audio_id,
@@ -343,7 +333,7 @@ class AudioLoop:
 
 
 async def main():
-    client = genai.client.Client(
+    client = genai_client.client.Client(
         api_key=app_config.gemini_api_key,
         http_options={"api_version": "v1alpha"},
     )
