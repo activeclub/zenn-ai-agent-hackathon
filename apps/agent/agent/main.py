@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 import PIL.Image
 import pyaudio
-from google.cloud import speech
+from google.cloud import speech, speech_v2
 from google.oauth2 import service_account
 from prisma import Prisma
 from prisma.models import Message, User
@@ -69,10 +69,12 @@ class AudioLoop:
 
         self.is_system_speaking = False
 
-        self.speech = speech.SpeechAsyncClient(
-            credentials=service_account.Credentials.from_service_account_file(
-                app_config.service_account_key_path
-            )
+        self.google_credentials = service_account.Credentials.from_service_account_file(
+            app_config.service_account_key_path
+        )
+        self.speech = speech.SpeechAsyncClient(credentials=self.google_credentials)
+        self.speech_v2 = speech_v2.SpeechAsyncClient(
+            credentials=self.google_credentials
         )
 
         try:
@@ -154,11 +156,39 @@ class AudioLoop:
 
             blob.upload_from_string(wav_bytes, content_type="audio/wav")
 
-            transcript = await stt_google(
-                storage_uri=f"gs://{app_config.cloud_storage_bucket}/{blob.name}",
-                sample_rate=sample_rate,
-                language_code=language_code,
+            # stt_google()が使えないので直接書く
+            # speech_config = speech.RecognitionConfig(
+            #     encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+            #     sample_rate_hertz=sample_rate,
+            #     language_code=language_code,
+            # )
+            # audio = speech.RecognitionAudio(
+            #     # content=audio_bytes,
+            #     uri=f"gs://{app_config.cloud_storage_bucket}/{blob.name}",
+            # )
+            # response = await self.speech.recognize(config=speech_config, audio=audio)
+            # transcript = ""
+            # for result in response.results:
+            #     transcript += result.alternatives[0].transcript
+            speech_config = speech_v2.types.cloud_speech.RecognitionConfig(
+                auto_decoding_config=speech_v2.types.AutoDetectDecodingConfig(),
+                language_codes=[language_code],
+                model="latest_long",
             )
+            request = speech_v2.types.cloud_speech.RecognizeRequest(
+                recognizer=f"projects/{self.google_credentials.project_id}/locations/global/recognizers/_",
+                config=speech_config,
+                content=wav_bytes,
+            )
+            response = await self.speech_v2.recognize(request=request)
+            transcript = ""
+            for result in response.results:
+                transcript += result.alternatives[0].transcript
+            # transcript = await stt_google(
+            #     storage_uri=f"gs://{app_config.cloud_storage_bucket}/{blob.name}",
+            #     sample_rate=sample_rate,
+            #     language_code=language_code,
+            # )
             # transcript = await stt_genai(audio_bytes=wav_bytes)
 
             await Message.prisma().create(
@@ -200,9 +230,7 @@ class AudioLoop:
             if mean_abs_amplitude < 500:
                 silent_chnks += 1
             else:
-                has_nonzero = any(b != 0 for b in data)
-                if has_nonzero:
-                    turn_block += data
+                turn_block += data
                 silent_chnks = 0
 
             # 一定期間以上の無音区間があれば、ターンの終了判定
@@ -365,7 +393,9 @@ async def main():
             ),
         )
 
-        async with genai_client.aio.live.connect(model=model_id, config=config) as session:
+        async with genai_client.aio.live.connect(
+            model=model_id, config=config
+        ) as session:
             await AudioLoop(session).run()
             # while True:
             #     await text2audio(session)

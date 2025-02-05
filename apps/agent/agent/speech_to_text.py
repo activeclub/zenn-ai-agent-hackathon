@@ -18,17 +18,11 @@ from agent.storage import bucket
 RATE = 16000
 CHUNK = int(RATE / 10)  # 100ms
 
-speech_client = speech.SpeechAsyncClient(
-    credentials=service_account.Credentials.from_service_account_file(
-        config.service_account_key_path
-    )
+credentials = service_account.Credentials.from_service_account_file(
+    config.service_account_key_path
 )
-
-speech_v2_client = speech_v2.SpeechAsyncClient(
-    credentials=service_account.Credentials.from_service_account_file(
-        config.service_account_key_path
-    )
-)
+speech_client = speech.SpeechAsyncClient(credentials=credentials)
+speech_v2_client = speech_v2.SpeechAsyncClient(credentials=credentials)
 
 
 class MicrophoneStream:
@@ -239,8 +233,10 @@ async def main2() -> None:
     # print(ret)
     #####
 
-    ret = await stt_google_v2(audio_bytes=audio_bytes)
-    print(ret)
+    async with asyncio.TaskGroup() as tg:       
+        ret = tg.create_task(stt_google(audio_bytes=audio_bytes))
+        # ret = await stt_google_v2(audio_bytes=audio_bytes)
+        print(await ret)
 
     ##### google-genai
     # ret = await stt_genai(
@@ -285,7 +281,7 @@ async def stt_google_v2(audio_bytes: Optional[bytes] = None) -> str:
     )
 
     request = speech_v2.types.cloud_speech.RecognizeRequest(
-        recognizer="projects/swift-handler-446606-q0/locations/global/recognizers/_",
+        recognizer=f"projects/{credentials.project_id}/locations/global/recognizers/_",
         config=speech_config,
         content=audio_bytes,
     )
@@ -294,7 +290,7 @@ async def stt_google_v2(audio_bytes: Optional[bytes] = None) -> str:
     transcript = ""
     for result in response.results:
         transcript += result.alternatives[0].transcript
-    
+
     return transcript
 
 
