@@ -6,7 +6,7 @@ import sys
 import wave
 
 import pyaudio
-from google.cloud import speech
+from google.cloud import speech, speech_v2
 from google.oauth2 import service_account
 from google.genai.types import Part
 
@@ -19,6 +19,12 @@ RATE = 16000
 CHUNK = int(RATE / 10)  # 100ms
 
 speech_client = speech.SpeechAsyncClient(
+    credentials=service_account.Credentials.from_service_account_file(
+        config.service_account_key_path
+    )
+)
+
+speech_v2_client = speech_v2.SpeechAsyncClient(
     credentials=service_account.Credentials.from_service_account_file(
         config.service_account_key_path
     )
@@ -224,7 +230,7 @@ def main() -> None:
 
 
 async def main2() -> None:
-    filename = "2666599b-e454-48f9-b752-6720e00dfe27.wav"
+    filename = "8afd47b0-9801-4478-b148-0e9d8cae115f.wav"
     blob = bucket.blob(filename)
     audio_bytes = blob.download_as_bytes()
 
@@ -233,12 +239,15 @@ async def main2() -> None:
     # print(ret)
     #####
 
-    ##### google-genai
-    ret = await stt_genai(
-        audio_bytes=audio_bytes,
-        storage_uri=f"gs://{config.cloud_storage_bucket}/{filename}",
-    )
+    ret = await stt_google_v2(audio_bytes=audio_bytes)
     print(ret)
+
+    ##### google-genai
+    # ret = await stt_genai(
+    #     audio_bytes=audio_bytes,
+    #     storage_uri=f"gs://{config.cloud_storage_bucket}/{filename}",
+    # )
+    # print(ret)
     #####
 
 
@@ -253,13 +262,6 @@ async def stt_google(
         sample_rate_hertz=sample_rate,
         language_code=language_code,
     )
-    # speech_config = cloud_speech.RecognitionConfig(
-    #     auto_decoding_config=cloud_speech.AutoDetectDecodingConfig(),
-    #     # encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-    #     # sample_rate_hertz=16000,
-    #     language_codes=["ja-JP"],
-    #     model="latest_long",
-    # )
 
     audio = speech.RecognitionAudio(
         content=audio_bytes,
@@ -267,17 +269,32 @@ async def stt_google(
     )
 
     response = await speech_client.recognize(config=speech_config, audio=audio)
-    # request = cloud_speech.RecognizeRequest(
-    #     recognizer="projects/swift-handler-446606-q0/locations/global/recognizers/_",
-    #     config=speech_config,
-    #     content=Base64.decode(message.contentAudio),
-    # )
-    # ret = speech_client.recognize(request=request)
 
     transcript = ""
     for result in response.results:
         transcript += result.alternatives[0].transcript
 
+    return transcript
+
+
+async def stt_google_v2(audio_bytes: Optional[bytes] = None) -> str:
+    speech_config = speech_v2.types.cloud_speech.RecognitionConfig(
+        auto_decoding_config=speech_v2.types.AutoDetectDecodingConfig(),
+        language_codes=["ja-JP"],
+        model="latest_long",
+    )
+
+    request = speech_v2.types.cloud_speech.RecognizeRequest(
+        recognizer="projects/swift-handler-446606-q0/locations/global/recognizers/_",
+        config=speech_config,
+        content=audio_bytes,
+    )
+    response = await speech_v2_client.recognize(request=request)
+
+    transcript = ""
+    for result in response.results:
+        transcript += result.alternatives[0].transcript
+    
     return transcript
 
 
