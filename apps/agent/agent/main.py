@@ -218,7 +218,7 @@ class AudioLoop:
             kwargs = {}
 
         turn_block = b""
-        silent_chnks = 0
+        silent_chunks = 0
         while True:
             data = await asyncio.to_thread(self.audio_stream.read, CHUNK_SIZE, **kwargs)
 
@@ -228,17 +228,18 @@ class AudioLoop:
             mean_abs_amplitude = np.abs(audio_data).mean()
 
             if mean_abs_amplitude < 500:
-                silent_chnks += 1
+                turn_block += data
+                silent_chunks += 1
             else:
                 turn_block += data
-                silent_chnks = 0
+                silent_chunks = 0
 
             # 一定期間以上の無音区間があれば、ターンの終了判定
-            silent_sample_num = silent_chnks * CHUNK_SIZE * CHANNELS
+            silent_sample_num = silent_chunks * CHUNK_SIZE * CHANNELS
             if silent_sample_num >= SEND_SAMPLE_RATE * 3 or self.is_system_speaking:
-                if turn_block:
+                if len(turn_block) > 2048:
                     self.db_queue.put_nowait({"audio": turn_block, "speaker": "USER"})
-                    turn_block = b""
+                turn_block = b""
 
     def _get_frame(self, frame_rgb):
         img = PIL.Image.fromarray(frame_rgb)  # Now using RGB frame
@@ -300,14 +301,7 @@ class AudioLoop:
                 if data := response.data:
                     self.is_system_speaking = True
                     self.audio_in_queue.put_nowait(data)
-                    has_nonzero = any(b != 0 for b in data)
-                    if not has_nonzero:
-                        self.db_queue.put_nowait(
-                            {"audio": turn_block, "speaker": "SYSTEM"}
-                        )
-                    else:
-                        turn_block += data
-                    continue
+                    turn_block += data
                 if text := response.text:
                     print(text, end="")
 
@@ -317,6 +311,10 @@ class AudioLoop:
             # much more audio than has played yet.
             # while not self.audio_in_queue.empty():
             #     self.audio_in_queue.get_nowait()
+
+            has_nonzero = any(b != 0 for b in turn_block)
+            if has_nonzero:
+                self.db_queue.put_nowait({"audio": turn_block, "speaker": "SYSTEM"})
 
             self.is_system_speaking = False
 

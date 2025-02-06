@@ -228,15 +228,16 @@ async def main2() -> None:
     blob = bucket.blob(filename)
     audio_bytes = blob.download_as_bytes()
 
+    pa = pyaudio.PyAudio()
+    mic_info = pa.get_default_input_device_info()
+    print(mic_info)
     ##### Speech to Text
     # ret = await stt_google(audio_bytes=audio_bytes)
     # print(ret)
     #####
 
-    async with asyncio.TaskGroup() as tg:       
-        ret = tg.create_task(stt_google(audio_bytes=audio_bytes))
-        # ret = await stt_google_v2(audio_bytes=audio_bytes)
-        print(await ret)
+    # ret = await stt_google_v2(audio_bytes=audio_bytes)
+    # print(ret)
 
     ##### google-genai
     # ret = await stt_genai(
@@ -341,8 +342,17 @@ def pcm_to_wav_bytes(pcm_bytes, sample_rate=16000, channels=1, sample_width=2):
     return wav_bytes
 
 
+def open_wav(file_path: str):
+    with wave.open(file_path) as f:
+        metadata = f.getparams()
+        frames = f.readframes(metadata.nframes)
+        print(metadata)
+        print(frames)
+
+
 if __name__ == "__main__":
     # main()
-    import asyncio
+    # import asyncio
 
-    asyncio.run(main2())
+    # asyncio.run(main2())
+    open_wav("/Users/nszknao/Downloads/5fb2716b-07c1-4439-a04d-6037fe8801f7.wav")
