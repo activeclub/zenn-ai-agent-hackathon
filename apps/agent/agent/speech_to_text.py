@@ -213,24 +213,19 @@ class GoogleSpeech:
         return responses
 
 
-def main() -> None:
-    """Transcribe speech from audio file."""
-    google_speech = GoogleSpeech()
+async def main() -> None:
+    pa = pyaudio.PyAudio()
+    mic_info = pa.get_default_input_device_info()
+    print(mic_info)
 
-    with MicrophoneStream(RATE, CHUNK) as stream:
-        audio_generator = stream.generator()
-        responses = google_speech.recognize(audio_generator)
-        listen_print_loop(responses)
+    for i in range(pa.get_device_count()):
+        info = pa.get_device_info_by_index(i)
+        print(i, info["name"])
 
-
-async def main2() -> None:
     filename = "8afd47b0-9801-4478-b148-0e9d8cae115f.wav"
     blob = bucket.blob(filename)
     audio_bytes = blob.download_as_bytes()
 
-    pa = pyaudio.PyAudio()
-    mic_info = pa.get_default_input_device_info()
-    print(mic_info)
     ##### Speech to Text
     # ret = await stt_google(audio_bytes=audio_bytes)
     # print(ret)
@@ -246,6 +241,12 @@ async def main2() -> None:
     # )
     # print(ret)
     #####
+
+    # google_speech = GoogleSpeech()
+    # with MicrophoneStream(RATE, CHUNK) as stream:
+    #     audio_generator = stream.generator()
+    #     responses = google_speech.recognize(audio_generator)
+    #     listen_print_loop(responses)
 
 
 async def stt_google(
@@ -351,8 +352,6 @@ def open_wav(file_path: str):
 
 
 if __name__ == "__main__":
-    # main()
-    # import asyncio
+    import asyncio
 
-    # asyncio.run(main2())
-    open_wav("/Users/nszknao/Downloads/5fb2716b-07c1-4439-a04d-6037fe8801f7.wav")
+    asyncio.run(main())

@@ -21,7 +21,6 @@ from google.genai.types import (
 
 from agent.config import config as app_config
 from agent.genai import genai_client
-from agent.speech import speak_from_bytes
 from agent.speech_to_text import pcm_to_wav_bytes, stt_google, stt_genai
 from agent.storage import bucket
 
@@ -30,30 +29,6 @@ CHANNELS = 1  # monaural
 SEND_SAMPLE_RATE = 16000
 RECEIVE_SAMPLE_RATE = 24000
 CHUNK_SIZE = 1024
-
-
-async def text2text(session: object):
-    message = input("User> ")
-    await session.send(message, end_of_turn=True)
-
-    async for response in session.receive():
-        if response.text is None:
-            continue
-        print(response.text, end="")
-
-
-async def text2audio(session: object):
-    message = input("User> ")
-    await session.send(message, end_of_turn=True)
-
-    audio_data = []
-    async for message in session.receive():
-        if message.server_content.model_turn:
-            for part in message.server_content.model_turn.parts:
-                if part.inline_data:
-                    audio_data.append(part.inline_data.data)
-    if audio_data:
-        speak_from_bytes(b"".join(audio_data), sample_rate=24_000)
 
 
 class AudioLoop:
@@ -221,6 +196,8 @@ class AudioLoop:
         silent_chunks = 0
         while True:
             data = await asyncio.to_thread(self.audio_stream.read, CHUNK_SIZE, **kwargs)
+
+            # FIXME: dataがユーザーの発話音声データ or システムの発話音声データのどちらかを判定する
 
             await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
 
@@ -395,8 +372,6 @@ async def main():
             model=model_id, config=config
         ) as session:
             await AudioLoop(session).run()
-            # while True:
-            #     await text2audio(session)
     except Exception as e:
         print(e)
     finally:

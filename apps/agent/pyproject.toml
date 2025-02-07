@@ -8,7 +8,6 @@ dependencies = [
     "google-auth>=2.37.0",
     "google-cloud-speech==2.30.0",
     "google-cloud-storage>=2.19.0",
-    "google-cloud-texttospeech==2.23.0",
     "google-genai==0.8.0",
     "numpy==1.26.4",
     "opencv-python-headless==4.10.0.84",
@@ -16,8 +15,6 @@ dependencies = [
     "prisma==0.15.0",
     "pyaudio==0.2.14",
     "pydantic-settings==2.7.1",
-    "pyttsx3==2.98",
-    "speechrecognition==3.13.0",
 ]
 
 [build-system]
