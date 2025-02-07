@@ -117,7 +117,6 @@ class AudioLoop:
                     sample_rate=RECEIVE_SAMPLE_RATE,
                     sample_width=2,  # 16bit
                 )
-                sample_rate = RECEIVE_SAMPLE_RATE
             elif speaker == "USER":
                 wav_bytes = pcm_to_wav_bytes(
                     data["audio"],
@@ -125,26 +124,12 @@ class AudioLoop:
                     sample_rate=SEND_SAMPLE_RATE,
                     sample_width=2,  # 16bit
                 )
-                sample_rate = SEND_SAMPLE_RATE
             else:
                 raise ValueError(f"Invalid speaker: {speaker}")
 
             blob.upload_from_string(wav_bytes, content_type="audio/wav")
 
             # stt_google()が使えないので直接書く
-            # speech_config = speech.RecognitionConfig(
-            #     encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-            #     sample_rate_hertz=sample_rate,
-            #     language_code=language_code,
-            # )
-            # audio = speech.RecognitionAudio(
-            #     # content=audio_bytes,
-            #     uri=f"gs://{app_config.cloud_storage_bucket}/{blob.name}",
-            # )
-            # response = await self.speech.recognize(config=speech_config, audio=audio)
-            # transcript = ""
-            # for result in response.results:
-            #     transcript += result.alternatives[0].transcript
             speech_config = speech_v2.types.cloud_speech.RecognitionConfig(
                 auto_decoding_config=speech_v2.types.AutoDetectDecodingConfig(),
                 language_codes=[language_code],
