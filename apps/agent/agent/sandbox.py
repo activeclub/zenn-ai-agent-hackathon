@@ -1,5 +1,6 @@
 import time
 from datetime import datetime
+import platform
 
 import cv2
 
@@ -154,4 +155,5 @@ def pycamera_sample(preview = False):
 
 
 if __name__ == "__main__":
-    pycamera_sample()
+    # pycamera_sample()
+    print(platform.system())

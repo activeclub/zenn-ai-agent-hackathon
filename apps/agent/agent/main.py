@@ -30,6 +30,11 @@ SEND_SAMPLE_RATE = 16000
 RECEIVE_SAMPLE_RATE = 24000
 CHUNK_SIZE = 1024
 
+# NLMS のパラメータ
+NLMS_FILTER_LENGTH = 128  # フィルタ長
+NLMS_MU = 0.1  # 更新ステップサイズ
+NLMS_EPSILON = 1e-6  # 正規化用ゼロ防止定数
+
 
 class AudioLoop:
     def __init__(self, session):
@@ -40,7 +45,14 @@ class AudioLoop:
         self.db_queue = None
 
         self.audio_interface = pyaudio.PyAudio()
-        self.audio_stream = None
+        self.mic_stream = None
+        self.monitor_stream = None
+
+        # Initialize the state for the NLMS algorithm
+        # Filter weight vector (initial value zero)
+        self.nlms_w = np.zeros(NLMS_FILTER_LENGTH, dtype=np.float32)
+        # Sliding buffer for reference signal (last filter_length-1 samples from the previous block)
+        self.nlms_buffer = np.zeros(NLMS_FILTER_LENGTH - 1, dtype=np.float32)
 
         self.is_system_speaking = False
 
@@ -161,14 +173,39 @@ class AudioLoop:
             )
 
     async def listen_audio(self):
-        mic_info = self.audio_interface.get_default_input_device_info()
-        self.audio_stream = await asyncio.to_thread(
+        # 利用可能な入力デバイス一覧を表示
+        print("Available input devices:")
+        for i in range(self.audio_interface.get_device_count()):
+            info = self.audio_interface.get_device_info_by_index(i)
+            print(f"{i}: {info['name']}")
+
+        # ユーザーに各入力デバイス番号の指定を促す
+        mic_device_index = int(
+            input(
+                "Please enter the user's microphone input device number (User's speech + system sound mixed): ",
+            )
+        )
+        monitor_device_index = int(
+            input("Please enter the monitor device number for system sound input: ")
+        )
+
+        self.mic_stream = await asyncio.to_thread(
             self.audio_interface.open,
             format=FORMAT,
             channels=CHANNELS,
             rate=SEND_SAMPLE_RATE,
             input=True,
-            input_device_index=mic_info["index"],
+            # input_device_index=self.audio_interface.get_default_input_device_info()["index"],
+            input_device_index=mic_device_index,
+            frames_per_buffer=CHUNK_SIZE,
+        )
+        self.monitor_stream = await asyncio.to_thread(
+            self.audio_interface.open,
+            format=FORMAT,
+            channels=CHANNELS,
+            rate=SEND_SAMPLE_RATE,
+            input=True,
+            input_device_index=monitor_device_index,
             frames_per_buffer=CHUNK_SIZE,
         )
 
@@ -180,9 +217,32 @@ class AudioLoop:
         turn_block = b""
         silent_chunks = 0
         while True:
-            data = await asyncio.to_thread(self.audio_stream.read, CHUNK_SIZE, **kwargs)
+            mic_data = await asyncio.to_thread(
+                self.mic_stream.read, CHUNK_SIZE, **kwargs
+            )
+            ref_data = await asyncio.to_thread(
+                self.monitor_stream.read, CHUNK_SIZE, **kwargs
+            )
 
-            # FIXME: dataがユーザーの発話音声データ or システムの発話音声データのどちらかを判定する
+            d_block = np.frombuffer(mic_data, dtype=np.int16).astype(np.float32)
+            x_block = np.frombuffer(ref_data, dtype=np.int16).astype(np.float32)
+
+            x_combined = np.concatenate((self.nlms_buffer, x_block))
+
+            e_block = np.empty_like(d_block)
+
+            for i in range(CHUNK_SIZE):
+                # Current reference window (length: nlms_filter_length)
+                x_vector = x_combined[i : i + self.nlms_filter_length]
+                y = np.dot(self.nlms_w, x_vector)  # estimated system sound
+                e = d_block[i] - y  # error signal (assumed to be user speech component)
+                e_block[i] = e
+                norm = np.dot(x_vector, x_vector) + self.nlms_epsilon
+                self.nlms_w = self.nlms_w + self.nlms_mu * x_vector * e / norm
+            # Keep the last nlms_filter_length-1 samples of x_combined for the next block
+            self.nlms_buffer = x_combined[-(self.nlms_filter_length - 1) :].copy()
+
+            data = e_block.tobytes()
 
             await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
 
@@ -314,7 +374,7 @@ class AudioLoop:
         except asyncio.CancelledError:
             pass
         except ExceptionGroup as EG:
-            self.audio_stream.close()
+            self.mic_stream.close()
             if self.picam2:
                 self.picam2.stop()
             traceback.print_exception(EG)
