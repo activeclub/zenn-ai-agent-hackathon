@@ -31,7 +31,7 @@ RECEIVE_SAMPLE_RATE = 24000
 CHUNK_SIZE = 1024
 
 # NLMS のパラメータ
-NLMS_FILTER_LENGTH = 128  # フィルタ長
+NLMS_FILTER_LENGTH = 512  # フィルタ長
 NLMS_MU = 0.1  # 更新ステップサイズ
 NLMS_EPSILON = 1e-6  # 正規化用ゼロ防止定数
 
