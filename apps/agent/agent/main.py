@@ -162,18 +162,12 @@ class AudioLoop:
                 }
             )
 
-    async def listen_audio(self):
-        print("Available input devices:")
-        for i in range(self.audio_interface.get_device_count()):
-            info = self.audio_interface.get_device_info_by_index(i)
-            print(f"{i}: {info['name']}")
+    def is_low_volume(self, audio_data: bytes) -> bool:
+        audio_data = np.frombuffer(audio_data, dtype=np.int16)
+        mean_abs_amplitude = np.abs(audio_data).mean()
+        return mean_abs_amplitude < 500
 
-        mic_device_index = int(
-            input(
-                "Please enter the user's microphone input device number (User's speech + system sound mixed): ",
-            )
-        )
-
+    async def listen_audio(self, mic_device_index=0):
         self.audio_stream = await asyncio.to_thread(
             self.audio_interface.open,
             format=FORMAT,
@@ -195,18 +189,15 @@ class AudioLoop:
         while True:
             data = await asyncio.to_thread(self.audio_stream.read, CHUNK_SIZE, **kwargs)
 
-            # FIXME: dataがユーザーの発話音声データ or システムの発話音声データのどちらかを判定する
-
             await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
 
             audio_data = np.frombuffer(data, dtype=np.int16)
             mean_abs_amplitude = np.abs(audio_data).mean()
 
+            turn_block += data
             if mean_abs_amplitude < 500:
-                turn_block += data
                 silent_chunks += 1
             else:
-                turn_block += data
                 silent_chunks = 0
 
             # 一定期間以上の無音区間があれば、ターンの終了判定
@@ -274,9 +265,9 @@ class AudioLoop:
             turn_block = b""
             async for response in turn:
                 if data := response.data:
-                    self.is_system_speaking = True
                     self.audio_in_queue.put_nowait(data)
                     turn_block += data
+                    self.is_system_speaking = True
                 if text := response.text:
                     print(text, end="")
 
@@ -315,7 +306,19 @@ class AudioLoop:
 
                 send_text_task = tg.create_task(self.send_text())
                 tg.create_task(self.get_frames())
-                tg.create_task(self.listen_audio())
+
+                print("Available input devices:")
+                for i in range(self.audio_interface.get_device_count()):
+                    info = self.audio_interface.get_device_info_by_index(i)
+                    print(f"{i}: {info['name']}")
+                mic_device_index = int(
+                    await asyncio.to_thread(
+                        input,
+                        "Please enter the user's microphone input device number (User's speech + system sound mixed): ",
+                    )
+                )
+                tg.create_task(self.listen_audio(mic_device_index))
+
                 tg.create_task(self.send_realtime())
                 tg.create_task(self.save_db())
 
