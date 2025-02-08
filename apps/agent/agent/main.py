@@ -41,6 +41,8 @@ class AudioLoop:
 
         self.audio_interface = pyaudio.PyAudio()
         self.audio_stream = None
+        print("=== Default input device info ===")
+        print(self.audio_interface.get_default_input_device_info())
 
         self.is_system_speaking = False
 
@@ -161,14 +163,25 @@ class AudioLoop:
             )
 
     async def listen_audio(self):
-        mic_info = self.audio_interface.get_default_input_device_info()
+        print("Available input devices:")
+        for i in range(self.audio_interface.get_device_count()):
+            info = self.audio_interface.get_device_info_by_index(i)
+            print(f"{i}: {info['name']}")
+
+        mic_device_index = int(
+            input(
+                "Please enter the user's microphone input device number (User's speech + system sound mixed): ",
+            )
+        )
+
         self.audio_stream = await asyncio.to_thread(
             self.audio_interface.open,
             format=FORMAT,
             channels=CHANNELS,
             rate=SEND_SAMPLE_RATE,
             input=True,
-            input_device_index=mic_info["index"],
+            # input_device_index=self.audio_interface.get_default_input_device_info()["index"],
+            input_device_index=mic_device_index,
             frames_per_buffer=CHUNK_SIZE,
         )
 
