@@ -339,7 +339,12 @@ async def main():
             response_modalities=["AUDIO"],
             system_instruction={
                 "parts": [
-                    {"text": setting.trait},
+                    {
+                        "text": f"""{setting.trait}
+
+Please note: The camera and microphone are in close proximity, so any words you speak might be inadvertently picked up and transmitted. If that happens, please disregard your own spoken words.
+"""
+                    },
                     # {"text": "Please answer concisely in Japanese."},
                     # {"text": "Please answer concisely in Japanese so that even a 5-year-old child can understand."},
                 ]
