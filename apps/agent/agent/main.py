@@ -355,7 +355,10 @@ async def main():
                     {
                         "text": f"""{setting.trait}
 
-Please note: The camera and microphone are in close proximity, so any words you speak might be inadvertently picked up and transmitted. If that happens, please disregard your own spoken words. Additionally, if the system's voice is transmitted, do not return turn_complete so that it is not recognized as an interruption.
+Please note: The camera and microphone are in close proximity, so any words you speak might be inadvertently picked up and transmitted.
+If that happens, please disregard your own spoken words.
+Additionally, if the system's voice is transmitted, do not return turn_complete so that it is not recognized as an interruption.
+Furthermore, if the received audio contains significant noise and cannot be clearly understood, please ignore it rather than attempting to provide an answer.
 """
                     },
                     # {"text": "Please answer concisely in Japanese."},
