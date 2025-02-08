@@ -236,14 +236,14 @@ class AudioLoop:
 
             for i in range(CHUNK_SIZE):
                 # Current reference window (length: nlms_filter_length)
-                x_vector = x_combined[i : i + self.nlms_filter_length]
+                x_vector = x_combined[i : i + NLMS_FILTER_LENGTH]
                 y = np.dot(self.nlms_w, x_vector)  # estimated system sound
                 e = d_block[i] - y  # error signal (assumed to be user speech component)
                 e_block[i] = e
-                norm = np.dot(x_vector, x_vector) + self.nlms_epsilon
-                self.nlms_w = self.nlms_w + self.nlms_mu * x_vector * e / norm
+                norm = np.dot(x_vector, x_vector) + NLMS_EPSILON
+                self.nlms_w = self.nlms_w + NLMS_MU * x_vector * e / norm
             # Keep the last nlms_filter_length-1 samples of x_combined for the next block
-            self.nlms_buffer = x_combined[-(self.nlms_filter_length - 1) :].copy()
+            self.nlms_buffer = x_combined[-(NLMS_FILTER_LENGTH - 1) :].copy()
 
             data = e_block.tobytes()
 
