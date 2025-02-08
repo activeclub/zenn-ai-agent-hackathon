@@ -275,8 +275,8 @@ class AudioLoop:
             # For interruptions to work, we need to stop playback.
             # So empty out the audio queue because it may have loaded
             # much more audio than has played yet.
-            while not self.audio_in_queue.empty():
-                self.audio_in_queue.get_nowait()
+            # while not self.audio_in_queue.empty():
+            #     self.audio_in_queue.get_nowait()
 
             has_nonzero = any(b != 0 for b in turn_block)
             if has_nonzero:
