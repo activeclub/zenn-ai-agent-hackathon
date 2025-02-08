@@ -188,6 +188,9 @@ class AudioLoop:
         silent_chunks = 0
         while True:
             data = await asyncio.to_thread(self.audio_stream.read, CHUNK_SIZE, **kwargs)
+            # Do not interrupt while the system is speaking
+            if self.is_system_speaking:
+                continue
 
             await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
 
@@ -202,7 +205,7 @@ class AudioLoop:
 
             # 一定期間以上の無音区間があれば、ターンの終了判定
             silent_sample_num = silent_chunks * CHUNK_SIZE * CHANNELS
-            if silent_sample_num >= SEND_SAMPLE_RATE * 3 or self.is_system_speaking:
+            if silent_sample_num >= SEND_SAMPLE_RATE * 3:
                 if len(turn_block) > 2048:
                     self.db_queue.put_nowait({"audio": turn_block, "speaker": "USER"})
                 turn_block = b""
@@ -337,7 +340,7 @@ class AudioLoop:
 
 
 async def main():
-    # available_models = await client.aio.models.list(config={"page_size": 5})
+    # available_models = await genai_client.aio.models.list(config={"page_size": 5})
     # print(available_models.page)
 
     prisma = Prisma(auto_register=True)
