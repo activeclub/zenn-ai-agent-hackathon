@@ -45,6 +45,9 @@ class AudioLoop:
         self.db_queue = None
 
         self.audio_interface = pyaudio.PyAudio()
+        print("=== Default input device info ===")
+        print(self.audio_interface.get_default_input_device_info())
+
         self.mic_stream = None
         self.monitor_stream = None
 
@@ -375,6 +378,7 @@ class AudioLoop:
             pass
         except ExceptionGroup as EG:
             self.mic_stream.close()
+            self.monitor_stream.close()
             if self.picam2:
                 self.picam2.stop()
             traceback.print_exception(EG)
