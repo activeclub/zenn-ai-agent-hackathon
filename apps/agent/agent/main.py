@@ -175,6 +175,11 @@ class AudioLoop:
                 }
             )
 
+    def is_low_volume(self, audio_data: bytes) -> bool:
+        audio_data = np.frombuffer(audio_data, dtype=np.int16)
+        mean_abs_amplitude = np.abs(audio_data).mean()
+        return mean_abs_amplitude < 500
+
     async def listen_audio(self):
         # 利用可能な入力デバイス一覧を表示
         print("Available input devices:")
@@ -223,6 +228,9 @@ class AudioLoop:
             mic_data = await asyncio.to_thread(
                 self.mic_stream.read, CHUNK_SIZE, **kwargs
             )
+            if self.is_low_volume(mic_data):
+                continue
+
             ref_data = await asyncio.to_thread(
                 self.monitor_stream.read, CHUNK_SIZE, **kwargs
             )
@@ -249,10 +257,7 @@ class AudioLoop:
 
             await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
 
-            audio_data = np.frombuffer(data, dtype=np.int16)
-            mean_abs_amplitude = np.abs(audio_data).mean()
-
-            if mean_abs_amplitude < 500:
+            if self.is_low_volume(data):
                 turn_block += data
                 silent_chunks += 1
             else:
