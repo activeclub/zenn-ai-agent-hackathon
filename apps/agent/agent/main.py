@@ -191,11 +191,10 @@ class AudioLoop:
 
             # Do not interrupt while the system is speaking
             if self.is_system_speaking:
-                continue
-            else:
                 if len(turn_block) > 2048:
                     self.db_queue.put_nowait({"audio": turn_block, "speaker": "USER"})
                 turn_block = b""
+                continue
 
             await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
 
