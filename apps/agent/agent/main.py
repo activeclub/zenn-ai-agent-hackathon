@@ -188,9 +188,14 @@ class AudioLoop:
         silent_chunks = 0
         while True:
             data = await asyncio.to_thread(self.audio_stream.read, CHUNK_SIZE, **kwargs)
+
             # Do not interrupt while the system is speaking
             if self.is_system_speaking:
                 continue
+            else:
+                if len(turn_block) > 2048:
+                    self.db_queue.put_nowait({"audio": turn_block, "speaker": "USER"})
+                turn_block = b""
 
             await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
 
